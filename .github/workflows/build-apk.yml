@@ -1,0 +1,65 @@
+name: Build APK
+
+on:
+  workflow_dispatch:      # кнопка «Run workflow»
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: write         # нужно, чтобы выложить APK в Releases
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Прописать адрес сервера в приложение
+        env:
+          SERVER_URL: ${{ vars.SERVER_URL }}
+        run: |
+          node -e "require('fs').writeFileSync('www/config.js','window.APP_CONFIG = '+JSON.stringify({server:(process.env.SERVER_URL||'').trim()})+';\n')"
+          cat www/config.js
+
+      - name: Установить Capacitor и создать Android-проект
+        run: |
+          npm install
+          npx cap add android
+
+      - name: Иконки, клавиатура, подпись
+        run: |
+          cp -r resources/android-res/* android/app/src/main/res/
+          python3 tools/patch-android.py
+          mkdir -p ~/.android
+          cp resources/debug.keystore ~/.android/debug.keystore
+
+      - name: Собрать APK
+        run: |
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Подготовить файл
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk Chatik.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Chatik-apk
+          path: Chatik.apk
+
+      - name: Выложить в Releases (удобно скачать с телефона)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-${{ github.run_number }}
+          name: Чатик (сборка ${{ github.run_number }})
+          files: Chatik.apk

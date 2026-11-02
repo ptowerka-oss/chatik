@@ -1,0 +1,11 @@
+# Автонастройка сервера на Render.com (Blueprint).
+# ВНИМАНИЕ: на бесплатном тарифе файлы стираются при каждом «засыпании» сервера,
+# аккаунты и переписка пропадают. Для постоянной работы добавьте Disk (см. README).
+services:
+  - type: web
+    name: chatik
+    runtime: node
+    plan: free
+    buildCommand: echo "ok"
+    startCommand: node server/index.js
+    healthCheckPath: /health
